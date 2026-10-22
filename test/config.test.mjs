@@ -16,7 +16,8 @@ describe("parseConfig", () => {
       locks: [{ name: "Front Door", address: "A4:C1:38:5E:2D:73", key: KEY.toLowerCase(), slot: 1 }],
       adapter: undefined,
       pollIntervalMs: 900000,
-      idleDisconnectMs: 30000
+      idleDisconnectMs: 30000,
+      commandTimeoutMs: 180000
     });
   });
 
@@ -44,8 +45,9 @@ describe("parseConfig", () => {
   });
 
   it("clamps timing, keeps the connection when asked, and validates the adapter", () => {
-    const clamped = parseConfig({ platform: "GoYale", pollIntervalSeconds: 999999, idleDisconnectSeconds: -4, adapter: " hci1 " }).settings;
+    const clamped = parseConfig({ platform: "GoYale", pollIntervalSeconds: 999999, idleDisconnectSeconds: -4, commandTimeoutSeconds: 5, adapter: " hci1 " }).settings;
     assert.equal(clamped.pollIntervalMs, 86400000);
+    assert.equal(clamped.commandTimeoutMs, 30000);
     assert.equal(clamped.idleDisconnectMs, 0);
     assert.equal(clamped.adapter, "hci1");
 

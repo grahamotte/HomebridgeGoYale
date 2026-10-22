@@ -41,6 +41,7 @@ or Wi-Fi module.
 - `adapter`: optional Bluetooth adapter such as `hci1`. Default: the first adapter.
 - `pollIntervalSeconds`: background refresh interval. Use `0` to disable. Default: `900`.
 - `idleDisconnectSeconds`: how long to stay connected after a command. Default: `30`.
+- `commandTimeoutSeconds`: abandon a lock or unlock request that has not reached the lock in time. Only the latest request runs. Default: `180`.
 - `keepConnected`: stay connected for faster commands and live state. Default: `false`.
 
 ## Notes

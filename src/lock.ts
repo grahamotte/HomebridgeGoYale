@@ -77,6 +77,16 @@ export class LockError extends Error {
   }
 }
 
+export class RequestCancelled extends LockError {
+  constructor() {
+    super("Request is no longer wanted", false);
+  }
+}
+
+export type StillWanted = () => boolean;
+
+const ALWAYS: StillWanted = () => true;
+
 interface Waiter {
   readonly matcher: FrameMatcher;
   readonly resolve: (frame: Buffer) => void;
@@ -346,8 +356,8 @@ export class YaleLock {
     private readonly timing: LockTiming = DEFAULT_TIMING,
   ) {}
 
-  refresh(): Promise<LockSnapshot> {
-    return this.run(READ_ATTEMPTS, async (connection) => ({
+  refresh(wanted: StillWanted = ALWAYS): Promise<LockSnapshot> {
+    return this.run(READ_ATTEMPTS, wanted, async (connection) => ({
       lock: await connection.status(),
       battery: await connection.battery().catch((error: unknown) => {
         this.log.debug(`${this.settings.name}: battery read failed: ${describe(error)}`);
@@ -356,9 +366,9 @@ export class YaleLock {
     }));
   }
 
-  setLocked(locked: boolean): Promise<void> {
+  setLocked(locked: boolean, wanted: StillWanted = ALWAYS): Promise<void> {
     const opcode = locked ? Command.Lock : Command.Unlock;
-    return this.run(OPERATION_ATTEMPTS, async (connection) => {
+    return this.run(OPERATION_ATTEMPTS, wanted, async (connection) => {
       const progress = { acknowledged: false };
       try {
         await connection.operate(opcode, progress);
@@ -381,13 +391,13 @@ export class YaleLock {
     await this.disconnect();
   }
 
-  private run<T>(attempts: number, task: (connection: LockConnection) => Promise<T>): Promise<T> {
-    const result = this.queue.catch(() => undefined).then(() => this.attempt(attempts, task));
+  private run<T>(attempts: number, wanted: StillWanted, task: (connection: LockConnection) => Promise<T>): Promise<T> {
+    const result = this.queue.catch(() => undefined).then(() => this.attempt(attempts, wanted, task));
     this.queue = result.catch(() => undefined);
     return result;
   }
 
-  private async attempt<T>(attempts: number, task: (connection: LockConnection) => Promise<T>): Promise<T> {
+  private async attempt<T>(attempts: number, wanted: StillWanted, task: (connection: LockConnection) => Promise<T>): Promise<T> {
     if (this.stopped) {
       throw new LockError("Lock is stopped", false);
     }
@@ -396,7 +406,10 @@ export class YaleLock {
     try {
       for (let attempt = 1; ; attempt++) {
         try {
-          return await task(await this.connect());
+          requireWanted(wanted);
+          const connection = await this.connect(wanted);
+          requireWanted(wanted);
+          return await task(connection);
         } catch (error) {
           const retryable = !(error instanceof LockError) || error.retryable;
           if (!retryable || attempt >= attempts) {
@@ -412,21 +425,22 @@ export class YaleLock {
     }
   }
 
-  private async connect(): Promise<LockConnection> {
+  private async connect(wanted: StillWanted): Promise<LockConnection> {
     if (this.connection?.isOpen) {
       return this.connection;
     }
 
-    this.connecting ??= this.openConnection().finally(() => {
+    this.connecting ??= this.openConnection(wanted).finally(() => {
       this.connecting = undefined;
     });
     return this.connecting;
   }
 
-  private async openConnection(): Promise<LockConnection> {
+  private async openConnection(wanted: StillWanted): Promise<LockConnection> {
     const started = Date.now();
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.timing.connectAttempts; attempt++) {
+      requireWanted(wanted);
       try {
         const device = await this.bluez.device(this.settings.address, this.timing.discoveryTimeoutMs);
         await device.connect(this.timing.connectTimeoutMs).catch(async (error: unknown) => {
@@ -470,6 +484,12 @@ export class YaleLock {
     const connection = this.connection;
     this.connection = undefined;
     await connection?.close().catch(() => undefined);
+  }
+}
+
+function requireWanted(wanted: StillWanted): void {
+  if (!wanted()) {
+    throw new RequestCancelled();
   }
 }
 

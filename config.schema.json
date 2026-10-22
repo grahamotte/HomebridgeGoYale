@@ -67,6 +67,14 @@
         "maximum": 3600,
         "default": 30
       },
+      "commandTimeoutSeconds": {
+        "title": "Command timeout (seconds)",
+        "description": "Abandon a lock or unlock request that has not reached the lock within this time.",
+        "type": "integer",
+        "minimum": 30,
+        "maximum": 3600,
+        "default": 180
+      },
       "keepConnected": {
         "title": "Keep the lock connected",
         "description": "Faster commands and live state at the cost of lock battery life.",

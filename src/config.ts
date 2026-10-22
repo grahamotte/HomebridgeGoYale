@@ -6,6 +6,7 @@ export interface GoYaleConfig {
   readonly adapter?: string;
   readonly pollIntervalMs: number;
   readonly idleDisconnectMs: number;
+  readonly commandTimeoutMs: number;
 }
 
 export interface ConfigProblem {
@@ -33,7 +34,8 @@ export function parseConfig(config: PlatformConfig): { settings: GoYaleConfig; p
       locks,
       adapter: typeof config.adapter === "string" && /^hci\d+$/u.test(config.adapter.trim()) ? config.adapter.trim() : undefined,
       pollIntervalMs: readNumber(config.pollIntervalSeconds, 900, 0, 86400) * 1000,
-      idleDisconnectMs: config.keepConnected === true ? -1 : readNumber(config.idleDisconnectSeconds, 30, 0, 3600) * 1000
+      idleDisconnectMs: config.keepConnected === true ? -1 : readNumber(config.idleDisconnectSeconds, 30, 0, 3600) * 1000,
+      commandTimeoutMs: readNumber(config.commandTimeoutSeconds, 180, 30, 3600) * 1000
     },
     problems
   };
