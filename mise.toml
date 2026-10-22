@@ -1,0 +1,47 @@
+[tasks.dependencies]
+description = "Install npm packages from the lockfile"
+run = "npm ci"
+
+[tasks.test]
+description = "Run lint, tests, build, and package validation"
+depends = ["dependencies"]
+run = "npm run validate"
+
+[tasks.check-clean]
+description = "Fail if the git working tree has uncommitted files"
+run = '''
+set -euo pipefail
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Refusing to continue with uncommitted files:" >&2
+  git status --short >&2
+  exit 1
+fi
+'''
+
+[tasks.publish]
+description = "Push, validate, and publish the package to npm"
+depends = ["push"]
+run = '''
+set -euo pipefail
+npm run validate
+mise run check-clean
+npm publish
+'''
+
+[tasks.push]
+description = "Fetch and safely push main to origin"
+depends = ["check-clean"]
+run = '''
+set -euo pipefail
+if [ "$(git remote get-url origin)" != "git@github.com:grahamotte/HomebridgeGoYale.git" ]; then
+  echo "Refusing to push: origin must point to the GitHub workflow repository" >&2
+  exit 1
+fi
+if [ "$(git remote)" != "origin" ]; then
+  echo "Refusing to push: this repository must have only origin" >&2
+  exit 1
+fi
+git fetch origin
+git merge-base --is-ancestor origin/main main
+git push origin main:refs/heads/main
+'''

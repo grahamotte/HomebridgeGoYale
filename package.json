@@ -1,0 +1,56 @@
+{
+  "name": "homebridge-go-yale",
+  "displayName": "GoYale",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "A Homebridge plugin for Yale and August locks over local Bluetooth",
+  "author": "Graham Otte",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/grahamotte/HomebridgeGoYale",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/grahamotte/HomebridgeGoYale.git"
+  },
+  "bugs": {
+    "url": "https://github.com/grahamotte/HomebridgeGoYale/issues"
+  },
+  "keywords": [
+    "homebridge-plugin"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^18.20.4 || ^20.18.0 || ^22.10.0 || ^24.0.0 || ^26.0.0",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "npm run clean && tsc",
+    "lint": "eslint .",
+    "test": "npm run build && node --test \"test/**/*.test.mjs\"",
+    "validate": "npm run lint && npm test && npm pack --dry-run",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build",
+    "watch": "npm run build && npm link && nodemon"
+  },
+  "dependencies": {
+    "dbus-next": "^0.10.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "homebridge": "^2.4.0",
+    "nodemon": "^3.1.14",
+    "rimraf": "^6.1.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  }
+}

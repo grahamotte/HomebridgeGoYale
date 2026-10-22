@@ -1,0 +1,78 @@
+{
+  "pluginAlias": "GoYale",
+  "pluginType": "platform",
+  "singular": true,
+  "strictValidation": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "GoYale"
+      },
+      "locks": {
+        "title": "Locks",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "placeholder": "Front Door"
+            },
+            "address": {
+              "title": "Bluetooth address",
+              "type": "string",
+              "placeholder": "A4:C1:38:5E:2D:73",
+              "pattern": "^([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}$"
+            },
+            "key": {
+              "title": "Offline key",
+              "description": "The 32-character offline key for this lock.",
+              "type": "string",
+              "pattern": "^[0-9A-Fa-f]{32}$"
+            },
+            "slot": {
+              "title": "Key slot",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          },
+          "required": ["address", "key", "slot"]
+        },
+        "default": []
+      },
+      "adapter": {
+        "title": "Bluetooth adapter",
+        "description": "Optional adapter name such as hci0. Defaults to the first adapter.",
+        "type": "string",
+        "pattern": "^hci[0-9]+$"
+      },
+      "pollIntervalSeconds": {
+        "title": "Background refresh interval (seconds)",
+        "description": "Each refresh connects to the lock. Set to 0 to disable background polling.",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 86400,
+        "default": 900
+      },
+      "idleDisconnectSeconds": {
+        "title": "Idle disconnect delay (seconds)",
+        "description": "How long to keep the Bluetooth connection open after the last command.",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3600,
+        "default": 30
+      },
+      "keepConnected": {
+        "title": "Keep the lock connected",
+        "description": "Faster commands and live state at the cost of lock battery life.",
+        "type": "boolean",
+        "default": false
+      }
+    }
+  }
+}
