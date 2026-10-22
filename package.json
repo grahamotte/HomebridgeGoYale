@@ -2,7 +2,7 @@
   "name": "homebridge-go-yale",
   "displayName": "GoYale",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Homebridge plugin for Yale and August locks over local Bluetooth",
   "author": "Graham Otte",
   "license": "Apache-2.0",

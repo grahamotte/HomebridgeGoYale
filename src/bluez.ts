@@ -160,7 +160,7 @@ export class Bluez {
   waitFor(
     timeoutMs: number,
     timeoutMessage: string,
-    check: (message: Message, resolve: () => void) => void,
+    check: (message: Message, resolve: () => void, reject: (error: Error) => void) => void,
   ): { promise: Promise<void>; cancel: () => void } {
     let cancel = () => undefined as void;
     const promise = new Promise<void>((resolve, reject) => {
@@ -171,6 +171,9 @@ export class Bluez {
       const unsubscribe = this.subscribe((message) => check(message, () => {
         cancel();
         resolve();
+      }, (error) => {
+        cancel();
+        reject(error);
       }));
       cancel = () => {
         clearTimeout(timer);
@@ -192,17 +195,27 @@ export class BluezDevice {
   }
 
   async connect(timeoutMs: number): Promise<void> {
-    if (await this.bluez.property(this.path, DEVICE, "Connected")) {
-      await this.bluez.call(this.path, DEVICE, "Disconnect").catch(() => undefined);
-    }
+    const resolved = this.bluez.waitFor(timeoutMs, "Lock services were not resolved", (message, resolve, reject) => {
+      if (message.path !== this.path) {
+        return;
+      }
 
-    const resolved = this.bluez.waitFor(timeoutMs, "Lock services were not resolved", (message, resolve) => {
-      if (message.path === this.path && changed(message, DEVICE).ServicesResolved?.value === true) {
+      const properties = changed(message, DEVICE);
+      if (properties.ServicesResolved?.value === true) {
         resolve();
+      } else if (properties.Connected?.value === false) {
+        reject(new BluetoothError("Lock disconnected during service discovery"));
       }
     });
     try {
-      await this.bluez.call(this.path, DEVICE, "Connect");
+      if (!(await this.bluez.property(this.path, DEVICE, "Connected"))) {
+        await this.bluez.call(this.path, DEVICE, "Connect").catch((error: unknown) => {
+          if (!(error instanceof BluetoothError && error.type === "org.bluez.Error.InProgress")) {
+            throw error;
+          }
+        });
+      }
+
       if (!(await this.bluez.property(this.path, DEVICE, "ServicesResolved"))) {
         await resolved.promise;
       }

@@ -14,6 +14,10 @@ or Wi-Fi module.
 
 - Linux with BlueZ (`bluetoothd`) running and a Bluetooth adapter in range of the lock.
 - The Homebridge user must be allowed to call `org.bluez` on the system D-Bus, which BlueZ permits by default.
+- Run `bluetoothd` with `--noplugin=gap`. Yale locks advertise preferred connection intervals of up to one
+  second, and BlueZ's GAP plugin applies them to every later connection, which is too slow to authenticate
+  before the lock disconnects. After changing it, re-register the adapter or reboot so the kernel forgets
+  intervals it already learned.
 - The lock's Bluetooth address, offline key, and key slot. These are the same values
   `yalexs-ble` and Home Assistant's Yale Access Bluetooth integration use. They can be
   read once from the lock's August or Yale Access account.

@@ -155,6 +155,7 @@ export class FakeBus extends EventEmitter {
     this.connected = false;
     this.calls = [];
     this.notifying = new Set();
+    this.connectError = undefined;
     this.disconnectOnWrite = 0;
     this.disconnected = false;
   }
@@ -198,7 +199,16 @@ export class FakeBus extends EventEmitter {
     this.disconnected = true;
   }
 
+  resolveServices() {
+    this.resolveLater = false;
+    this.changed(DEVICE, "org.bluez.Device1", { ServicesResolved: new dbus.Variant("b", true) });
+  }
+
   connect() {
+    if (this.connectError) {
+      throw new dbus.DBusError(this.connectError, "error");
+    }
+
     const failure = this.connectFailures.shift();
     if (failure) {
       throw new dbus.DBusError("org.bluez.Error.Failed", failure);

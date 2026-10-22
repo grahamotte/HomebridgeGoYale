@@ -53,7 +53,7 @@ describe("YaleLockAccessory", () => {
     target.setHandler(1);
     await until(() => current.value === 1);
     assert.equal(fakeLock.status, "locked");
-    assert.deepEqual(messages.info.filter((message) => message.startsWith("Front Door")), [
+    assert.deepEqual(messages.info.filter((message) => message.startsWith("Front Door") && !message.includes("connected in")), [
       "Front Door: unlocking",
       "Front Door: unlocked",
       "Front Door: locking",
