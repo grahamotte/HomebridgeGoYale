@@ -195,7 +195,6 @@ export class BluezDevice {
   }
 
   async connect(timeoutMs: number): Promise<void> {
-    await this.bluez.call(this.path, PROPERTIES, "Set", "ssv", [DEVICE, "Trusted", new dbus.Variant("b", true)]).catch(() => undefined);
     const resolved = this.bluez.waitFor(timeoutMs, "Lock services were not resolved", (message, resolve, reject) => {
       if (message.path !== this.path) {
         return;

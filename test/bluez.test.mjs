@@ -54,14 +54,6 @@ describe("Bluez", () => {
     await assert.rejects(device.characteristics(["0000ffff-0000-1000-8000-00805f9b34fb"]), /characteristics missing/u);
   });
 
-  it("trusts the lock so BlueZ keeps its service cache", async () => {
-    const bus = new FakeBus();
-    const device = await new Bluez(() => bus).device(ADDRESS, 1000);
-    await device.connect(1000);
-
-    assert.equal(bus.trusted, true);
-  });
-
   it("reuses an existing connection with resolved services", async () => {
     const bus = new FakeBus();
     bus.connected = true;

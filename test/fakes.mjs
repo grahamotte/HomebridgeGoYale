@@ -155,7 +155,6 @@ export class FakeBus extends EventEmitter {
     this.connected = false;
     this.calls = [];
     this.notifying = new Set();
-    this.trusted = false;
     this.connectError = undefined;
     this.disconnectOnWrite = 0;
     this.disconnected = false;
@@ -169,12 +168,6 @@ export class FakeBus extends EventEmitter {
         return reply();
       case "org.freedesktop.DBus.ObjectManager.GetManagedObjects":
         return reply(this.objects());
-      case `${PROPERTIES}.Set`:
-        if (message.path === DEVICE && message.body[1] === "Trusted") {
-          this.trusted = message.body[2].value;
-        }
-
-        return reply();
       case `${PROPERTIES}.Get`:
         return reply(new dbus.Variant("b", this.property(message.path, message.body[1])));
       case "org.bluez.Adapter1.SetDiscoveryFilter":
