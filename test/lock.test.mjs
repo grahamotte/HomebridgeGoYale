@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { describe, it } from "node:test";
 import { Bluez } from "../dist/bluez.js";
-import { LockError, YaleLock } from "../dist/lock.js";
+import { LockError, RequestCancelled, YaleLock } from "../dist/lock.js";
 import { ADDRESS, createLog, FakeBus, FakeLock, FAST_TIMING, KEY, settle, SLOT } from "./fakes.mjs";
 
 function createLock(options = {}) {
@@ -138,6 +138,24 @@ describe("YaleLock", () => {
     await dropped;
 
     assert.equal(bus.connected, false);
+    await lock.stop();
+  });
+
+  it("drops a request that is no longer wanted without connecting", async () => {
+    const { bus, fakeLock, lock } = createLock();
+
+    await assert.rejects(lock.setLocked(false, () => false), RequestCancelled);
+    assert.equal(bus.calls.includes("org.bluez.Device1.Connect"), false);
+    assert.equal(fakeLock.status, "locked");
+    await lock.stop();
+  });
+
+  it("stops connecting once a request is no longer wanted", async () => {
+    const { bus, lock } = createLock({ bus: { connectFailures: ["one", "two", "three"] } });
+    const connects = () => bus.calls.filter((call) => call === "org.bluez.Device1.Connect").length;
+
+    await assert.rejects(lock.setLocked(false, () => connects() < 1), RequestCancelled);
+    assert.equal(connects(), 1);
     await lock.stop();
   });
 

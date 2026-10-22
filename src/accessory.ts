@@ -1,5 +1,5 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from "homebridge";
-import { describe, YaleLock, type LockSettings, type LockTiming } from "./lock.js";
+import { describe, RequestCancelled, YaleLock, type LockSettings, type LockTiming } from "./lock.js";
 import type { GoYalePlatform } from "./platform.js";
 import type { LockStatus, StatusUpdate } from "./protocol.js";
 
@@ -12,6 +12,8 @@ export class YaleLockAccessory {
   private current: number;
   private target: number;
   private pollTimer?: ReturnType<typeof setInterval>;
+  private request = 0;
+  private commandPending = false;
 
   constructor(
     private readonly platform: GoYalePlatform,
@@ -75,7 +77,7 @@ export class YaleLockAccessory {
   }
 
   private refresh(): void {
-    this.lock.refresh()
+    this.lock.refresh(() => !this.commandPending)
       .then((snapshot) => {
         this.apply({ kind: "lock", status: snapshot.lock });
         if (snapshot.battery !== undefined) {
@@ -83,6 +85,11 @@ export class YaleLockAccessory {
         }
       })
       .catch((error: unknown) => {
+        if (error instanceof RequestCancelled) {
+          this.platform.log.debug(`${this.settings.name}: refresh skipped for a lock request`);
+          return;
+        }
+
         this.platform.log.warn(`${this.settings.name}: refresh failed: ${describe(error)}`);
       });
   }
@@ -91,15 +98,47 @@ export class YaleLockAccessory {
     const { Characteristic } = this.platform;
     const locked = Number(value) === Characteristic.LockTargetState.SECURED;
     this.target = locked ? Characteristic.LockTargetState.SECURED : Characteristic.LockTargetState.UNSECURED;
+    const request = ++this.request;
+    const deadline = Date.now() + this.platform.settings.commandTimeoutMs;
+    this.commandPending = true;
     this.platform.log.info(`${this.settings.name}: ${locked ? "locking" : "unlocking"}`);
-    this.lock.setLocked(locked)
+    this.lock.setLocked(locked, () => request === this.request && Date.now() < deadline)
       .then(() => {
         this.platform.log.info(`${this.settings.name}: ${locked ? "locked" : "unlocked"}`);
       })
       .catch((error: unknown) => {
+        if (request !== this.request) {
+          this.platform.log.debug(`${this.settings.name}: ${locked ? "lock" : "unlock"} request superseded`);
+          return;
+        }
+
+        if (error instanceof RequestCancelled) {
+          this.platform.log.warn(`${this.settings.name}: ${locked ? "lock" : "unlock"} request expired before reaching the lock`);
+          this.restoreTarget();
+          return;
+        }
+
         this.platform.log.warn(`${this.settings.name}: ${locked ? "lock" : "unlock"} failed: ${describe(error)}`);
+        this.commandPending = false;
         this.refresh();
+      })
+      .finally(() => {
+        if (request === this.request) {
+          this.commandPending = false;
+        }
       });
+  }
+
+  private restoreTarget(): void {
+    const { Characteristic } = this.platform;
+    if (this.current !== Characteristic.LockCurrentState.SECURED && this.current !== Characteristic.LockCurrentState.UNSECURED) {
+      return;
+    }
+
+    this.target = this.current === Characteristic.LockCurrentState.SECURED
+      ? Characteristic.LockTargetState.SECURED
+      : Characteristic.LockTargetState.UNSECURED;
+    this.mechanism.getCharacteristic(Characteristic.LockTargetState).updateValue(this.target);
   }
 
   private apply(update: StatusUpdate): void {

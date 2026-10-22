@@ -95,6 +95,49 @@ describe("YaleLockAccessory", () => {
     await platform.stop();
   });
 
+  it("runs only the latest request", async () => {
+    const { current, fakeLock, messages, platform, target } = await createAccessory();
+    await until(() => current.value === 1);
+
+    target.setHandler(0);
+    target.setHandler(1);
+    await until(() => messages.info.includes("Front Door: locked"));
+    assert.equal(fakeLock.commands.includes("10:0"), false);
+    assert.equal(fakeLock.status, "locked");
+    assert.deepEqual(messages.debug.filter((message) => message.includes("superseded")), ["Front Door: unlock request superseded"]);
+    assert.equal(target.getHandler(), 1);
+    await platform.stop();
+  });
+
+  it("expires a request that cannot reach the lock in time", async (t) => {
+    const { current, fakeLock, messages, platform, target } = await createAccessory();
+    await until(() => current.value === 1);
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    target.setHandler(0);
+    t.mock.timers.tick(181000);
+    await until(() => messages.warn.length > 0);
+    assert.deepEqual(messages.warn, ["Front Door: unlock request expired before reaching the lock"]);
+    assert.equal(fakeLock.status, "locked");
+    assert.equal(target.value, 1);
+    assert.equal(target.getHandler(), 1);
+    await platform.stop();
+  });
+
+  it("skips a background refresh while a request is pending", async (t) => {
+    t.mock.timers.enable({ apis: ["setInterval"] });
+    const { current, fakeLock, messages, platform, target } = await createAccessory(new FakeLock(), { pollIntervalSeconds: 60 });
+    await until(() => current.value === 1);
+    const before = fakeLock.commands.length;
+
+    t.mock.timers.tick(60000);
+    target.setHandler(0);
+    await until(() => messages.info.includes("Front Door: unlocked"));
+    assert.deepEqual(messages.debug.filter((message) => message.includes("refresh skipped")), ["Front Door: refresh skipped for a lock request"]);
+    assert.equal(fakeLock.commands.slice(before).filter((command) => command === "2:2").length, 0);
+    await platform.stop();
+  });
+
   it("logs refresh failures", async () => {
     const { messages, platform } = await createAccessory(new FakeLock({ slot: 9 }));
 
