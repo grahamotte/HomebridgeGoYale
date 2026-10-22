@@ -54,16 +54,55 @@ describe("Bluez", () => {
     await assert.rejects(device.characteristics(["0000ffff-0000-1000-8000-00805f9b34fb"]), /characteristics missing/u);
   });
 
-  it("drops a stale connection before connecting", async () => {
+  it("trusts the lock so BlueZ keeps its service cache", async () => {
+    const bus = new FakeBus();
+    const device = await new Bluez(() => bus).device(ADDRESS, 1000);
+    await device.connect(1000);
+
+    assert.equal(bus.trusted, true);
+  });
+
+  it("reuses an existing connection with resolved services", async () => {
     const bus = new FakeBus();
     bus.connected = true;
     const device = await new Bluez(() => bus).device(ADDRESS, 1000);
     await device.connect(1000);
 
-    assert.deepEqual(bus.calls.filter((call) => call.startsWith("org.bluez.Device1")), [
-      "org.bluez.Device1.Disconnect",
-      "org.bluez.Device1.Connect"
-    ]);
+    assert.deepEqual(bus.calls.filter((call) => call.startsWith("org.bluez.Device1")), []);
+  });
+
+  it("waits for a connection that is still discovering services instead of dropping it", async () => {
+    const bus = new FakeBus(undefined, { resolveLater: true });
+    bus.connected = true;
+    const device = await new Bluez(() => bus).device(ADDRESS, 1000);
+    const connecting = device.connect(1000);
+    await settle();
+    bus.resolveServices();
+    await connecting;
+
+    assert.deepEqual(bus.calls.filter((call) => call.startsWith("org.bluez.Device1")), []);
+  });
+
+  it("waits when BlueZ reports a connection already in progress", async () => {
+    const bus = new FakeBus(undefined, { resolveLater: true });
+    bus.connectError = "org.bluez.Error.InProgress";
+    const device = await new Bluez(() => bus).device(ADDRESS, 1000);
+    const connecting = device.connect(1000);
+    await settle();
+    bus.connected = true;
+    bus.resolveServices();
+    await connecting;
+  });
+
+  it("fails fast when the lock drops during service discovery", async () => {
+    const bus = new FakeBus(undefined, { resolveLater: true });
+    bus.connected = true;
+    const device = await new Bluez(() => bus).device(ADDRESS, 60000);
+    const connecting = device.connect(60000);
+    await settle();
+    bus.dropConnection();
+
+    await assert.rejects(connecting, /Lock disconnected during service discovery/u);
   });
 
   it("converts D-Bus failures into Bluetooth errors", async () => {

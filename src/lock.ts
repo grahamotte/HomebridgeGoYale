@@ -59,7 +59,7 @@ export interface LockSnapshot {
 
 export const DEFAULT_TIMING: LockTiming = {
   discoveryTimeoutMs: 30000,
-  connectTimeoutMs: 30000,
+  connectTimeoutMs: 120000,
   connectAttempts: 4,
   responseTimeoutMs: 10000,
   ackTimeoutMs: 8000,
@@ -453,7 +453,7 @@ export class YaleLock {
           }
         });
         this.connection = connection;
-        this.log.debug(`${this.settings.name}: connected in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+        this.log.info(`${this.settings.name}: connected in ${((Date.now() - started) / 1000).toFixed(1)}s`);
         return connection;
       } catch (error) {
         if (error instanceof LockError && !error.retryable) {
