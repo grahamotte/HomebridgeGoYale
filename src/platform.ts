@@ -12,6 +12,7 @@ import { Bluez, type BusFactory } from "./bluez.js";
 import { parseConfig, type GoYaleConfig } from "./config.js";
 import { DEFAULT_TIMING, type LockSettings, type LockTiming } from "./lock.js";
 import { PLATFORM_NAME, PLUGIN_NAME } from "./settings.js";
+import { withPluginPrefix } from "./logger.js";
 
 interface Context {
   address?: string;
@@ -26,13 +27,16 @@ export class GoYalePlatform implements DynamicPlatformPlugin {
   private readonly controllers = new Map<string, YaleLockAccessory>();
   private readonly timing: LockTiming;
 
+  public readonly log: Logging;
+
   constructor(
-    public readonly log: Logging,
+    log: Logging,
     public readonly config: PlatformConfig,
     public readonly api: API,
     createBus?: BusFactory,
     timing: Partial<LockTiming> = {},
   ) {
+    this.log = withPluginPrefix(log);
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
     const { settings, problems } = parseConfig(config);
